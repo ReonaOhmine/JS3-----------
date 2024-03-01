@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="ikuji.css">
+    <title>育児活動の記録</title>
+</head>
+
+<body>
+
+    <h1 id="childHeader">育児アシスタント（作成途中）</h1>
+
+    <!-- 子どもの名前を入力するフォーム -->
+    <label for="childName">子どもの名前:</label>
+    <input type="text" id="childName" name="childName" oninput="ChildnameWoHanei()">
+    
+    <!-- 子どもの生年月日を選択するフォーム -->
+    <select id="birthYear" name="birthYear"></select>年
+    <select id="birthMonth" name="birthMonth"></select>月
+    <select id="birthDay" name="birthDay"></select>日生まれ
+
+    <!-- 記録内容の選択ボタンを作成 -->
+    <button onclick="recordTime('授乳した時間')">授乳した時間</button>
+    <button onclick="recordTime('寝た時間')">寝た時間</button>
+    <button onclick="recordTime('起きた時間')">起きた時間</button>
+    <button onclick="recordTime('うんちの時間')">うんちの時間</button>
+    
+    <!-- 記録をリスト化して表示 -->
+    <ul id="timeList"></ul>
+
+    <!-- リセットボタンを作成 -->
+    <button onclick="resetRecords()">リセット</button>
+
+    <script>
+        // 子供の名前を更新してヘッダーに反映
+        function ChildnameWoHanei() {
+            const childName = document.getElementById('childName').value;
+            document.getElementById('childHeader').textContent = `${childName}ママの育児アシスタント`;
+        }
+
+        // 子供の年齢を更新してヘッダーに反映
+        function ChildAgeWoHanei() {
+            const birthYear = parseInt(document.getElementById('birthYear').value);
+            const birthMonth = parseInt(document.getElementById('birthMonth').value);
+            const birthDay = parseInt(document.getElementById('birthDay').value);
+            const birthDate = new Date(birthYear, birthMonth - 1, birthDay);
+            const currentDate = new Date();
+            const ageMonths = (currentDate.getFullYear() - birthDate.getFullYear()) * 12 + currentDate.getMonth() - birthDate.getMonth();
+            document.getElementById('childHeader').textContent += ` ${ageMonths}ヶ月`;
+        }
+
+        // 年の選択肢を生成
+        for (let year = 2024; year >= 2000; year--) {
+            const option = document.createElement('option');
+            option.textContent = year;
+            option.value = year;
+            document.getElementById('birthYear').appendChild(option);
+        }
+
+        // 月の選択肢を生成
+        for (let month = 1; month <= 12; month++) {
+            const option = document.createElement('option');
+            option.textContent = month;
+            option.value = month;
+            document.getElementById('birthMonth').appendChild(option);
+        }
+
+        // 日の選択肢を生成
+        for (let day = 1; day <= 31; day++) {
+            const option = document.createElement('option');
+            option.textContent = day;
+            option.value = day;
+            document.getElementById('birthDay').appendChild(option);
+        }
+
+
+        // ①行動を記録する
+        function recordTime(activity) {
+            let timeInput = prompt(`${activity}を入力してください (例: 15:30)`);
+            if (timeInput) {
+                const additionalText = getAdditionalText(activity, timeInput);
+                addRecordToList(activity, timeInput, additionalText);
+                saveRecord(activity, timeInput, additionalText);
+            }
+        }
+
+        // ②活動後の次のアクションについて計算する
+        function calculateNextTime(time, minutesToAdd) {
+            const [hours, minutes] = time.split(':').map(num => parseInt(num, 10));
+            const currentTime = new Date();
+            currentTime.setHours(hours, minutes + minutesToAdd, 0); // 指定した分を加算
+
+            // 次の予定時刻を "HH:MM" 形式で返す
+            return currentTime.toTimeString().substring(0, 5);
+        }
+
+        // ③活動内容とその後のアクションをパターン分けして文章化する（if構文）
+        function getAdditionalText(activity, timeInput) {
+            let additionalText = '';
+            if (activity === '授乳した時間') {
+                const nextTime = calculateNextTime(timeInput, 180); // 3時間後
+                additionalText = `、次は${nextTime}にお腹が空く予定だよ`;
+            } else if (activity === '寝た時間') {
+                const wakeUpStart = calculateNextTime(timeInput, 30); // 30分後
+                const wakeUpEnd = calculateNextTime(timeInput, 90); // 90分後
+                additionalText = `、${wakeUpStart}〜${wakeUpEnd}の間に起きる予定だよ`;
+            } else if (activity === '起きた時間') {
+                const sleepyTime = calculateNextTime(timeInput, 120); // 2時間後
+                additionalText = `、${sleepyTime}に眠くなる予定だよ`;
+            } else if (activity === 'うんちの時間') {
+                additionalText = '、今日も快便やったね！';
+            }
+            return additionalText;
+        }
+
+        // ④③について、リスト化して表示する
+        function addRecordToList(activity, timeInput, additionalText) {
+            const timeList = document.getElementById('timeList');
+            const li = document.createElement('li');
+            li.textContent = `${activity}: ${timeInput} ${additionalText}`;
+            timeList.appendChild(li);
+        }
+
+        // ⑤localStorageに上記の内容を保存する
+        function saveRecord(activity, timeInput, additionalText) {
+            const record = { activity, time: timeInput, additionalText };
+            const currentRecords = JSON.parse(localStorage.getItem('activityRecords')) || [];
+            currentRecords.push(record);
+            localStorage.setItem('activityRecords', JSON.stringify(currentRecords));
+        }
+
+        // ⑤-a リセットするとlocalStorageから上記の内容が削除される
+        function resetRecords() {
+            localStorage.removeItem('activityRecords'); // ローカルストレージのデータを削除
+            const timeList = document.getElementById('timeList');
+            timeList.innerHTML = ''; // 画面上の表示もクリア
+        }
+
+        // ⑤-b リロードしてもlocalStorage上の記録が表示されたままになるようにする        
+        function displayRecords() {
+            const storedRecords = JSON.parse(localStorage.getItem('activityRecords')) || [];
+            storedRecords.forEach(record => {
+                addRecordToList(record.activity, record.time, record.additionalText);
+            });
+        }
+    </script>
+</body>
+
+</html>
